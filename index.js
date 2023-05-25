@@ -15,12 +15,16 @@ async function authzPlugin (fastify, opts) {
   }
 
   const roles = Object.freeze({ ...opts.roles })
-
   const roleNames = new Map(Object.entries(roles).map(([k, v]) => [v, k]))
+  const roleName = (roleValue) => roleNames.get(roleValue)
 
   fastify.decorate('roles', roles)
   fastify.decorate('roleNames', roleNames)
-  fastify.decorate('roleName', (roleValue) => roleNames.get(roleValue))
+  fastify.decorate('roleName', roleName)
+  Object.entries(roles).forEach(([k, v]) => {
+    fastify.decorate(`is${k.charAt(0).toUpperCase() + k.slice(1)}`,
+      (roleValue) => roleValue === v)
+  })
 }
 
 module.exports = fp(authzPlugin, {

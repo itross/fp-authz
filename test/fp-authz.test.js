@@ -61,3 +61,36 @@ test('Should get role name from role value', async (t) => {
   t.equal(app.roleName('ROLE_ADMIN'), 'admin', 'role name for value "ROLE_ADMIN" should be "admin')
   t.equal(app.roleName('ROLE_USER'), 'user', 'role name for value "ROLE_USER" should be "user')
 })
+
+test('Should decorate is<role>() functions', async (t) => {
+  t.plan(3)
+
+  const app = await build(t)
+
+  await app.register(authzPlugin, {
+    roles: {
+      admin: 'ROLE_ADMIN',
+      user: 'ROLE_USER'
+    }
+  })
+  t.ok(app.roles)
+  t.ok(app.isAdmin)
+  t.ok(app.isUser)
+})
+
+test('Should check if a role value is a role', async (t) => {
+  t.plan(4)
+
+  const app = await build(t)
+
+  await app.register(authzPlugin, {
+    roles: {
+      admin: 'ROLE_ADMIN',
+      user: 'ROLE_USER'
+    }
+  })
+  t.ok(app.roles)
+  t.equal(app.isAdmin('ROLE_ADMIN'), true)
+  t.equal(app.isUser('ROLE_USER'), true)
+  t.equal(app.isUser('ROLE_FAKE'), false)
+})
