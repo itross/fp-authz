@@ -4,81 +4,56 @@ const { test } = require('tap')
 const build = require('./build.js')
 const authzPlugin = require('..')
 
-test('Should rejects for missing opts.roles object', async (t) => {
-  t.plan(2)
-
-  const app = await build(t)
-
-  t.rejects(
-    app.register(authzPlugin, {}),
-    Error('specify a correct "roles" object.'))
-  t.notOk(app.roles)
-})
-
-test('Should rejects for malformed opts.roles object', async (t) => {
-  t.plan(2)
+test('Should reject for missing opts.secret', async (t) => {
+  t.plan(1)
 
   const app = await build(t)
 
   t.rejects(
     app.register(authzPlugin, {
-      roles: {}
+      roles: {
+        admin: 'ROLE_ADMIN'
+      }
     }),
-    Error('specify a correct "roles" object.'))
-  t.notOk(app.roles)
+    Error('provide a valid @fastify/jwt configuration for JWT token verification.'))
 })
 
-test('Should decorate roles enum and get role values', async (t) => {
-  t.plan(5)
+test('Should authorize with one role', async (t) => {
+  t.plan(2)
 
   const app = await build(t)
 
   await app.register(authzPlugin, {
     roles: {
-      admin: 'ROLE_ADMIN',
-      user: 'ROLE_USER'
-    }
+      admin: 'ROLE_ADMIN'
+    },
+    secret: 'bazinga'
   })
-  t.ok(app.roles)
-  t.ok(app.roleNames)
-  t.ok(app.roleName)
-  t.equal(app.roles.admin, 'ROLE_ADMIN', 'role "admin" value is not "ROLE_ADMIN" as expected')
-  t.equal(app.roles.user, 'ROLE_USER', 'role "user" value is not "ROLE_USER" as expected')
+
+  const { roles, authorize } = app
+
+  const token = app.jwt.sign({
+    id: 1,
+    sub: 'frank.zappa',
+    auth: 'ROLE_ADMIN'
+  })
+
+  app.get('/protected', {
+    onRequest: authorize(roles.admin)
+  }, async () => {
+    return 'protected resource'
+  })
+
+  const response = await app.inject({
+    method: 'GET',
+    path: '/protected',
+    headers: { authorization: `Bearer ${token}` }
+  })
+  t.equal(response.statusCode, 200)
+  t.equal(response.body, 'protected resource')
 })
 
-test('Should get role name from role value', async (t) => {
-  t.plan(3)
-
-  const app = await build(t)
-
-  await app.register(authzPlugin, {
-    roles: {
-      admin: 'ROLE_ADMIN',
-      user: 'ROLE_USER'
-    }
-  })
-  t.ok(app.roles)
-  t.equal(app.roleName('ROLE_ADMIN'), 'admin', 'role name for value "ROLE_ADMIN" should be "admin')
-  t.equal(app.roleName('ROLE_USER'), 'user', 'role name for value "ROLE_USER" should be "user')
-})
-
-test('Should decorate is<role>() functions', async (t) => {
-  t.plan(3)
-
-  const app = await build(t)
-
-  await app.register(authzPlugin, {
-    roles: {
-      admin: 'ROLE_ADMIN',
-      user: 'ROLE_USER'
-    }
-  })
-  t.ok(app.roles)
-  t.ok(app.isAdmin)
-  t.ok(app.isUser)
-})
-
-test('Should check if a role value is a role', async (t) => {
+test('Should authorize with multiple role', async (t) => {
   t.plan(4)
 
   const app = await build(t)
@@ -87,10 +62,128 @@ test('Should check if a role value is a role', async (t) => {
     roles: {
       admin: 'ROLE_ADMIN',
       user: 'ROLE_USER'
-    }
+    },
+    secret: 'bazinga'
   })
-  t.ok(app.roles)
-  t.equal(app.isAdmin('ROLE_ADMIN'), true)
-  t.equal(app.isUser('ROLE_USER'), true)
-  t.equal(app.isUser('ROLE_FAKE'), false)
+
+  const { roles, authorize } = app
+
+  const adminToken = app.jwt.sign({ id: 1, sub: 'frank.zappa', auth: 'ROLE_ADMIN' })
+  const userToken = app.jwt.sign({ id: 2, sub: 'warren.cuccurullo', auth: 'ROLE_USER' })
+
+  app.get('/protected', {
+    onRequest: authorize([roles.admin, roles.user])
+  }, async () => {
+    return 'protected resource'
+  })
+
+  const responseForAdmin = await app.inject({
+    method: 'GET',
+    path: '/protected',
+    headers: { authorization: `Bearer ${adminToken}` }
+  })
+  const responseForUser = await app.inject({
+    method: 'GET',
+    path: '/protected',
+    headers: { authorization: `Bearer ${userToken}` }
+  })
+
+  t.equal(responseForAdmin.statusCode, 200)
+  t.equal(responseForAdmin.body, 'protected resource')
+  t.equal(responseForUser.statusCode, 200)
+  t.equal(responseForUser.body, 'protected resource')
+})
+
+test('Should authorize with any role', async (t) => {
+  t.plan(2)
+
+  const app = await build(t)
+
+  await app.register(authzPlugin, {
+    roles: {
+      admin: 'ROLE_ADMIN'
+    },
+    secret: 'bazinga'
+  })
+
+  const token = app.jwt.sign({ id: 1, sub: 'frank.zappa', auth: 'ROLE_ADMIN' })
+
+  app.get('/protected', {
+    onRequest: app.authorize()
+  }, async () => {
+    return 'protected resource'
+  })
+
+  const response = await app.inject({
+    method: 'GET',
+    path: '/protected',
+    headers: { authorization: `Bearer ${token}` }
+  })
+  t.equal(response.statusCode, 200)
+  t.equal(response.body, 'protected resource')
+})
+
+test('Should reject with "unauthorized" for bad role', async (t) => {
+  t.plan(1)
+
+  const app = await build(t)
+
+  await app.register(authzPlugin, {
+    roles: {
+      admin: 'ROLE_ADMIN'
+    },
+    secret: 'bazinga'
+  })
+
+  const { roles, authorize } = app
+
+  const token = app.jwt.sign({
+    id: 1,
+    sub: 'frank.zappa',
+    auth: 'ROLE_USER'
+  })
+
+  app.get('/protected', {
+    onRequest: authorize(roles.admin)
+  }, async () => {
+    return 'protected resource'
+  })
+
+  const response = await app.inject({
+    method: 'GET',
+    path: '/protected',
+    headers: { authorization: `Bearer ${token}` }
+  })
+
+  t.equal(response.statusCode, 403)
+})
+
+test('Should not register plugin for malformed roles in authorize()', async (t) => {
+  t.plan(2)
+
+  const app = await build(t)
+
+  await app.register(authzPlugin, {
+    roles: {
+      admin: 'ROLE_ADMIN'
+    },
+    secret: 'bazinga'
+  })
+
+  let errMessage = ''
+  try {
+    app.authorize({ foo: 'bar' })
+  } catch (err) {
+    errMessage = err.message
+  }
+  t.equal(errMessage, 'authorize: role must be a string or an array of string')
+
+  let errMessage2 = ''
+  try {
+    app.authorize([app.roles.admin, 1])
+  } catch (err) {
+    errMessage = err.message
+    errMessage2 = err.message
+  }
+  t.equal(errMessage2, 'authorize: role must be a string or an array of string')
 })
