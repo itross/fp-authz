@@ -11,7 +11,7 @@ test('Should reject for missing opts.roles object', async (t) => {
 
   t.rejects(
     app.register(authzPlugin, { secret: 'bazinga' }),
-    Error('provide a correct "roles" object.'))
+    Error('provide a correct "roles" object'))
   t.notOk(app.roles)
 })
 
@@ -25,7 +25,7 @@ test('Should reject for malformed opts.roles object', async (t) => {
       roles: {},
       secret: 'bazinga'
     }),
-    Error('provide a correct "roles" object.'))
+    Error('provide a correct "roles" object'))
   t.notOk(app.roles)
 })
 

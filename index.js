@@ -13,13 +13,13 @@ const createError = require('http-errors')
 
 async function authzPlugin (fastify, opts) {
   if (!opts.roles || typeof opts.roles !== 'object' || Object.keys(opts.roles).length === 0) {
-    throw new Error('provide a correct "roles" object.')
+    throw new Error('provide a correct "roles" object')
   }
 
   const { roles, ...jwtConfig } = opts
 
   if (!jwtConfig || Object.keys(jwtConfig).length === 0) {
-    throw new Error('provide a valid @fastify/jwt configuration for JWT token verification.')
+    throw new Error('provide a valid @fastify/jwt configuration for JWT token verification')
   }
 
   const _roles = Object.freeze({ ...roles })
@@ -62,10 +62,10 @@ async function authzPlugin (fastify, opts) {
       try {
         await request.jwtVerify()
         if (rolesToCheck.length > 0 && !rolesToCheck.includes(request.user.auth)) {
-          throw new createError.Forbidden('unauthorized')
+          throw new createError.Forbidden('Unauthorized')
         }
       } catch (err) {
-        throw new createError.Forbidden('unauthorized')
+        throw new createError.Forbidden('Unauthorized')
       }
     }
   })

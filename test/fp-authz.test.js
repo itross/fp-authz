@@ -15,7 +15,7 @@ test('Should reject for missing opts.secret', async (t) => {
         admin: 'ROLE_ADMIN'
       }
     }),
-    Error('provide a valid @fastify/jwt configuration for JWT token verification.'))
+    Error('provide a valid @fastify/jwt configuration for JWT token verification'))
 })
 
 test('Should authorize with one role', async (t) => {
@@ -124,7 +124,7 @@ test('Should authorize with any role', async (t) => {
 })
 
 test('Should reject with "unauthorized" for bad role', async (t) => {
-  t.plan(1)
+  t.plan(4)
 
   const app = await build(t)
 
@@ -155,7 +155,11 @@ test('Should reject with "unauthorized" for bad role', async (t) => {
     headers: { authorization: `Bearer ${token}` }
   })
 
+  const responseBody = response.json()
   t.equal(response.statusCode, 403)
+  t.equal(responseBody.statusCode, 403)
+  t.equal(responseBody.error, 'Forbidden')
+  t.equal(responseBody.message, 'Unauthorized')
 })
 
 test('Should not register plugin for malformed roles in authorize()', async (t) => {
