@@ -95,18 +95,20 @@ test('Should authorize with multiple role', async (t) => {
 })
 
 test('Should authorize with any role', async (t) => {
-  t.plan(2)
+  t.plan(6)
 
   const app = await build(t)
 
   await app.register(authzPlugin, {
     roles: {
-      admin: 'ROLE_ADMIN'
+      admin: 'ROLE_ADMIN',
+      user: 'ROLE_USER',
+      god: 'GOD_MOD'
     },
     secret: 'bazinga'
   })
 
-  const token = app.jwt.sign({ id: 1, sub: 'frank.zappa', auth: 'ROLE_ADMIN' })
+  let token = app.jwt.sign({ id: 1, sub: 'frank.zappa', auth: 'ROLE_ADMIN' })
 
   app.get('/protected', {
     onRequest: app.authorize()
@@ -114,7 +116,25 @@ test('Should authorize with any role', async (t) => {
     return 'protected resource'
   })
 
-  const response = await app.inject({
+  let response = await app.inject({
+    method: 'GET',
+    path: '/protected',
+    headers: { authorization: `Bearer ${token}` }
+  })
+  t.equal(response.statusCode, 200)
+  t.equal(response.body, 'protected resource')
+
+  token = app.jwt.sign({ id: 1, sub: 'frank.zappa', auth: 'ROLE_USER' })
+  response = await app.inject({
+    method: 'GET',
+    path: '/protected',
+    headers: { authorization: `Bearer ${token}` }
+  })
+  t.equal(response.statusCode, 200)
+  t.equal(response.body, 'protected resource')
+
+  token = app.jwt.sign({ id: 1, sub: 'frank.zappa', auth: 'GOD_MOD' })
+  response = await app.inject({
     method: 'GET',
     path: '/protected',
     headers: { authorization: `Bearer ${token}` }

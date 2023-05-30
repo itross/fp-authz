@@ -53,10 +53,10 @@ async function authzPlugin (fastify, opts) {
       } else {
         throw new Error('authorize: role must be a string or an array of string')
       }
+    } else {
+      // if no role is passed, user role from jwt claim must be one of the configured ones.
+      rolesToCheck.push(...roleNames.keys())
     }
-
-    // if no role is passed, user role from jwt claim must be one of the configured ones.
-    role = role && role.length > 0 ? role : roles
 
     return async function (request) {
       try {
